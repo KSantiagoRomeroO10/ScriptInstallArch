@@ -44,6 +44,22 @@ if ! sed -n '/^devices {/,/^}/p' /etc/lvm/lvm.conf | grep -q 'allow_mixed_block_
   sed -i '/^devices {/,/^}/ s/^}/    allow_mixed_block_sizes = 1\n}/' /etc/lvm/lvm.conf
 fi
 
+# 6. Crear volúmenes lógicos con tamaños específicos
+lvcreate -L 50G vg0 -n root
+lvcreate -L 20G vg0 -n var
+lvcreate -L 30G vg0 -n opt
+lvcreate -L 32G vg0 -n swap
+lvcreate -l 100%FREE vg0 -n home
+
+# 7. Mostrar lista de volúmenes
+echo "Volúmenes lógicos creados:"
+lvs
+
+# 8. Ejecutar comandos finales
+modprobe dm_mod
+vgscan
+vgchange -ay
+
 # Crear LVM sobre las particiones
 PARTITIONS=()
 for i in "${!DISKS[@]}"; do
@@ -62,22 +78,6 @@ for p in "${PARTITIONS[@]}"; do
 done
 
 vgcreate vg0 "${PARTITIONS[@]}"
-
-# 6. Crear volúmenes lógicos con tamaños específicos
-lvcreate -L 50G vg0 -n root
-lvcreate -L 20G vg0 -n var
-lvcreate -L 30G vg0 -n opt
-lvcreate -L 32G vg0 -n swap
-lvcreate -l 100%FREE vg0 -n home
-
-# 7. Mostrar lista de volúmenes
-echo "Volúmenes lógicos creados:"
-lvs
-
-# 8. Ejecutar comandos finales
-modprobe dm_mod
-vgscan
-vgchange -ay
 
 # Formatear volúmenes
 mkfs.ext4 /dev/vg0/root
