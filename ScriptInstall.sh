@@ -7,7 +7,7 @@ lsblk
 
 # 2. Listar discos excepto el medio de instalación
 echo "Detectando discos..."
-DISKS=($(lsblk -ndo NAME,TYPE | awk '$2=="disk"{print "/dev/"$1}' | grep -v "/dev/sr0"))
+DISKS=($(lsblk -bndo NAME,TYPE,SIZE | awk '$2=="disk" && $3 > 200*1024*1024*1024 {print "/dev/"$1}' | grep -v "/dev/sr0"))
 
 if [ ${#DISKS[@]} -eq 0 ]; then
   echo "No se encontraron discos."
