@@ -5,7 +5,7 @@ set -euo pipefail
 echo "Discos disponibles:"
 lsblk
 
-# 2. Listar discos excepto el medio de instalación
+# 2. Listar discos excepto el medio de instalación y que sean mayores a 200 GB
 echo "Detectando discos..."
 DISKS=($(lsblk -bndo NAME,TYPE,SIZE | awk '$2=="disk" && $3 > 200*1024*1024*1024 {print "/dev/"$1}' | grep -v "/dev/sr0"))
 
@@ -16,13 +16,13 @@ fi
 
 # Mostrar discos que se van a formatear y pedir confirmación
 echo "Se formatearán los siguientes discos: ${DISKS[*]}"
-read -p "¿Seguro que quieres continuar? s/N] " -r
+read -p "¿Seguro que quieres continuar? [s/N] " -r
 if [[ ! $REPLY =~ ^[Ss]$ ]]; then
   echo "Operación cancelada."
   exit 0
 fi
 
-# Formatear discos
+# 3. Formatear discos
 for i in "${!DISKS[@]}"; do
   DISK="${DISKS[$i]}"
   echo "Procesando disco: $DISK"
@@ -38,29 +38,13 @@ for i in "${!DISKS[@]}"; do
   fi
 done
 
-# Configurar lvm.conf
+# 4. Configurar lvm.conf
 echo "Modificando /etc/lvm/lvm.conf"
 if ! sed -n '/^devices {/,/^}/p' /etc/lvm/lvm.conf | grep -q 'allow_mixed_block_sizes'; then
   sed -i '/^devices {/,/^}/ s/^}/    allow_mixed_block_sizes = 1\n}/' /etc/lvm/lvm.conf
 fi
 
-# 6. Crear volúmenes lógicos con tamaños específicos
-lvcreate -L 50G vg0 -n root
-lvcreate -L 20G vg0 -n var
-lvcreate -L 30G vg0 -n opt
-lvcreate -L 32G vg0 -n swap
-lvcreate -l 100%FREE vg0 -n home
-
-# 7. Mostrar lista de volúmenes
-echo "Volúmenes lógicos creados:"
-lvs
-
-# 8. Ejecutar comandos finales
-modprobe dm_mod
-vgscan
-vgchange -ay
-
-# Crear LVM sobre las particiones
+# 5. Preparar lista de particiones
 PARTITIONS=()
 for i in "${!DISKS[@]}"; do
   DISK="${DISKS[$i]}"
@@ -72,12 +56,30 @@ for i in "${!DISKS[@]}"; do
   PARTITIONS+=("$PART")
 done
 
+# 6. Crear volúmenes físicos
 for p in "${PARTITIONS[@]}"; do
   echo "Creando volumen físico en $p"
   pvcreate "$p"
 done
 
+# 7. Crear grupo de volúmenes
 vgcreate vg0 "${PARTITIONS[@]}"
+
+# 8. Activar LVM
+modprobe dm_mod
+vgscan
+vgchange -ay
+
+# 9. Crear volúmenes lógicos con tamaños específicos
+lvcreate -L 50G vg0 -n root
+lvcreate -L 20G vg0 -n var
+lvcreate -L 30G vg0 -n opt
+lvcreate -L 32G vg0 -n swap
+lvcreate -l 100%FREE vg0 -n home
+
+# 10. Mostrar lista de volúmenes lógicos
+echo "Volúmenes lógicos creados:"
+lvs
 
 # Formatear volúmenes
 mkfs.ext4 /dev/vg0/root
