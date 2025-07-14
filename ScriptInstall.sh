@@ -184,6 +184,8 @@ groups santiago
 # Habilitar sudo para wheel
 sed -i 's/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /etc/sudoers
 
+exit
+
 # Desmontar todos los sistemas de archivos
 umount -R /mnt
 
