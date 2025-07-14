@@ -40,7 +40,9 @@ done
 
 # Configurar lvm.conf
 echo "Modificando /etc/lvm/lvm.conf"
-sed -i 's/^.*\(allow_mixed_block_sizes\).*$/    allow_mixed_block_sizes = 1/' /etc/lvm/lvm.conf
+if ! sed -n '/^devices {/,/^}/p' /etc/lvm/lvm.conf | grep -q 'allow_mixed_block_sizes'; then
+  sed -i '/^devices {/,/^}/ s/^}/    allow_mixed_block_sizes = 1\n}/' /etc/lvm/lvm.conf
+fi
 
 # Crear LVM sobre las particiones
 PARTITIONS=()
