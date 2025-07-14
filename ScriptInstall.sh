@@ -14,7 +14,15 @@ if [ ${#DISKS[@]} -eq 0 ]; then
   exit 1
 fi
 
-# 3. Formatear discos
+# Mostrar discos que se van a formatear y pedir confirmación
+echo "Se formatearán los siguientes discos: ${DISKS[*]}"
+read -p "¿Seguro que quieres continuar? s/N] " -r
+if [[ ! $REPLY =~ ^[Ss]$ ]]; then
+  echo "Operación cancelada."
+  exit 0
+fi
+
+# Formatear discos
 for i in "${!DISKS[@]}"; do
   DISK="${DISKS[$i]}"
   echo "Procesando disco: $DISK"
@@ -30,7 +38,11 @@ for i in "${!DISKS[@]}"; do
   fi
 done
 
-# 4. Crear LVM sobre las particiones
+# Configurar lvm.conf
+echo "Modificando /etc/lvm/lvm.conf"
+sed -i 's/^.*\(allow_mixed_block_sizes\).*$/    allow_mixed_block_sizes = 1/' /etc/lvm/lvm.conf
+
+# Crear LVM sobre las particiones
 PARTITIONS=()
 for i in "${!DISKS[@]}"; do
   DISK="${DISKS[$i]}"
@@ -46,10 +58,6 @@ for p in "${PARTITIONS[@]}"; do
   echo "Creando volumen físico en $p"
   pvcreate "$p"
 done
-
-# 5. Configurar lvm.conf
-echo "Modificando /etc/lvm/lvm.conf"
-sed -i 's/^.*\(allow_mixed_block_sizes\).*$/    allow_mixed_block_sizes = 1/' /etc/lvm/lvm.conf
 
 vgcreate vg0 "${PARTITIONS[@]}"
 
@@ -106,8 +114,6 @@ genfstab -U /mnt >> /mnt/etc/fstab
 
 # 12. Chroot al sistema instalado
 arch-chroot /mnt
-
-cat fstab
 
 # 13. Instalar paquetes adicionales
 pacman -Syyu --noconfirm grub efibootmgr cryptsetup lvm2 e2fsprogs git networkmanager nvidia nvidia-utils nvidia-settings iwd fastfetch
