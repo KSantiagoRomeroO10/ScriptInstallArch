@@ -56,6 +56,11 @@ for i in "${!DISKS[@]}"; do
   PARTITIONS+=("$PART")
 done
 
+for p in "${PARTITIONS[@]}"; do
+  echo "Limpiando firmas antiguas en $p"
+  wipefs -a "$p"
+done
+
 # 6. Crear volúmenes físicos
 for p in "${PARTITIONS[@]}"; do
   echo "Creando volumen físico en $p"
