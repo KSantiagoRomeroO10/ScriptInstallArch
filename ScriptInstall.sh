@@ -5,8 +5,6 @@ set -euo pipefail
 echo "Discos disponibles:"
 lsblk
 
-sleep 2
-
 # 2. Listar discos excepto el medio de instalación
 echo "Detectando discos..."
 DISKS=($(lsblk -ndo NAME,TYPE | awk '$2=="disk"{print "/dev/"$1}' | grep -v "/dev/sr0"))
@@ -49,11 +47,11 @@ for p in "${PARTITIONS[@]}"; do
   pvcreate "$p"
 done
 
-vgcreate vg0 "${PARTITIONS[@]}"
-
 # 5. Configurar lvm.conf
 echo "Modificando /etc/lvm/lvm.conf"
 sed -i 's/^.*\(allow_mixed_block_sizes\).*$/    allow_mixed_block_sizes = 1/' /etc/lvm/lvm.conf
+
+vgcreate vg0 "${PARTITIONS[@]}"
 
 # 6. Crear volúmenes lógicos con tamaños específicos
 lvcreate -L 50G vg0 -n root
@@ -66,16 +64,31 @@ lvcreate -l 100%FREE vg0 -n home
 echo "Volúmenes lógicos creados:"
 lvs
 
-sleep 2
-
 # 8. Ejecutar comandos finales
 modprobe dm_mod
 vgscan
 vgchange -ay
 
-echo "Configuración de discos finalizada."
+# Formatear volúmenes
+mkfs.ext4 /dev/vg0/root
+mkfs.ext4 /dev/vg0/var
+mkfs.ext4 /dev/vg0/opt
+mkfs.ext4 /dev/vg0/home
+mkswap /dev/vg0/swap
 
-sleep 2
+# Formatear EFI
+mkfs.fat -F32 "${DISKS[0]}1"
+
+# Montar puntos
+mount /dev/vg0/root /mnt
+mkdir /mnt/{boot,boot/efi,var,opt,home}
+mount "${DISKS[0]}1" /mnt/boot/efi
+mount /dev/vg0/var /mnt/var
+mount /dev/vg0/opt /mnt/opt
+mount /dev/vg0/home /mnt/home
+swapon /dev/vg0/swap
+
+echo "Configuración de discos finalizada."
 
 # 9. Insertar mirrors activos al principio del mirrorlist
 echo "Insertando mirrors en /etc/pacman.d/mirrorlist"
@@ -84,8 +97,6 @@ sed -i '/^Server/ i\
 Server = https://mirrors.atlas.net.co/archlinux/$repo/os/$arch\nServer = https://edgeuno-bog2.mm.fcix.net/archlinux/$repo/os/$arch' /etc/pacman.d/mirrorlist
 
 cat /etc/pacman.d/mirrorlist
-
-sleep 2
 
 # 10. Instalar sistema base
 pacstrap /mnt base base-devel linux linux-firmware
@@ -97,8 +108,6 @@ genfstab -U /mnt >> /mnt/etc/fstab
 arch-chroot /mnt
 
 cat fstab
-
-sleep 2
 
 # 13. Instalar paquetes adicionales
 pacman -Syyu --noconfirm grub efibootmgr cryptsetup lvm2 e2fsprogs git networkmanager nvidia nvidia-utils nvidia-settings iwd fastfetch
