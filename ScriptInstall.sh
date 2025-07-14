@@ -155,6 +155,7 @@ cat > /etc/hosts <<EOF
 127.0.0.1    localhost
 ::1          localhost
 127.0.0.1    lh.santiagoromero.dev
+127.0.0.1    ArchPingu.localdomain ArchPingu
 EOF
 
 echo "Configurando contraseña de root"
